@@ -13,9 +13,9 @@ use Carp;
 use POE		qw(Wheel::Run Filter::Line Driver::SysRW);
 use vars	qw($VERSION);
 
-$VERSION = (qw($Revision: 1.2 $))[1];
+$VERSION = (qw($Revision: 1.3 $))[1];
 
-my @stat = (
+my %stat = (
 	':-)' => 'Normal operation, low/no jitter',
 	':-|' => 'Normal operation, considerable jitter',
 	':-/' => 'Read drift',
@@ -111,26 +111,22 @@ sub got_done {
 
 __END__
 
-# Documentation #{{{
-
 =head1 NAME
 
-POE::Component::CDParanoia
+POE::Component::CDRip - POE Component for running cdparanoia, a CD ripper.
 
 =head1 SYNOPSIS
- 
-POE Component for running C<cdparanoia>, a CD ripper.
 
-    use POE qw(Component::CDParanoia);
+use POE qw(Component::CDRip);
 
-    $cdp = POE::Component::MPG123->new(alias => $alias);
-	$cdp->rip(3, "/tmp/03.rip");
+$cdp = POE::Component::CDRip->new(alias => $alias);
+$cdp->rip(3, "/tmp/03.rip");
 
-    $poe_kernel->run();
+$poe_kernel->run();
 
 =head1 DESCRIPTION
 
-PoCo::CDParanoia's C<new()> method takes the following parameters:
+PoCo::CDRip's C<new()> method takes the following parameters:
 
 =over 4
 
@@ -172,11 +168,11 @@ Erick Calder <ecalder@cpan.org>
 
 =head1 DATE
 
-$Date: 2002/09/10 07:33:30 $
+$Date: 2002/09/10 09:11:20 $
 
 =head1 VERSION
 
-$Revision: 1.2 $
+$Revision: 1.3 $
 
 =head1 LICENSE AND COPYRIGHT
 
