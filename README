@@ -23,12 +23,10 @@ To install this module type the following:
 
 DEPENDENCIES
 
-This module requires the POE state engine and the cdparanoia program.
+This module requires the POE state engine and the 'cdparanoia' ripper.
 
 COPYRIGHT AND LICENCE
 
 Copyright (C) 2002 Erick Calder <ecalder@cpan.org>
 
 This product is distributed under the MIT License. A copy of this license was included in a file called LICENSE. If for some reason, this file was not included, please see http://www.opensource.org/licenses/mit-license.html to obtain a copy of this license.
-
-

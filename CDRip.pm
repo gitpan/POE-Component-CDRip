@@ -6,14 +6,18 @@
 
 package POE::Component::CDRip;
 
+# --- external modules --------------------------------------------------------
+
 use warnings;
 use strict;
 use Carp;
 
-use POE		qw(Wheel::Run Filter::Line Driver::SysRW);
-use vars	qw($VERSION);
+use POE qw(Wheel::Run Filter::Line Driver::SysRW);
 
-$VERSION = (qw($Revision: 1.3 $))[1];
+# --- module variables --------------------------------------------------------
+
+use vars qw($VERSION);
+$VERSION = substr q$Revision: 1.5 $, 10;
 
 my %stat = (
 	':-)' => 'Normal operation, low/no jitter',
@@ -28,23 +32,27 @@ my %stat = (
 	':^D' => 'Finished extracting',
 	);
 
+# --- module interface --------------------------------------------------------
+
 sub new {
 	my $class = shift;
 	my $opts = shift;
 
 	my $self = bless({}, $class);
 
-	$self->{dev} = "/dev/cdrom";
-	$self->{alias} = "console";
-
 	my %opts = !defined($opts) ? () : ref($opts) ? %$opts : ($opts, @_);
 	%$self = (%$self, %opts);
+
+	$self->{dev} ||= "/dev/cdrom";
+	$self->{alias} ||= "main";
+	$self->{status} ||= "status";
+	$self->{done} ||= "done";
 
 	return $self;
 	}
 
 sub rip {
-	my $self = shift ;
+	my $self = shift;
 	my ($n, $fn) = @_;
 
 	POE::Session->create(
@@ -59,10 +67,14 @@ sub rip {
 		);
 	}
 
+# --- session handlers --------------------------------------------------------
+
 sub _start {
 	my ($heap, $self, $n, $fn) = @_[HEAP, ARG0 .. ARG2];
 
 	$heap->{self} = $self;
+	$heap->{n} = $n;
+	$heap->{fn} = $fn;
 
 	my @cmd = ("cdparanoia", "-d", $self->{dev}, $n, $fn);
 	$heap->{child} = POE::Wheel::Run->new(
@@ -91,23 +103,28 @@ sub got_output {
 		my $stmsg = $stat{$st};
 		my $p = ($blk - $heap->{from}) / ($heap->{to} - $heap->{from});
 		$p = int(100 * $p);
-		$kernel->post($heap->{self}{alias}
-			, status => [$blk, $p, $st, $stmsg]
+		my $self = $heap->{self};
+		$kernel->post($self->{alias}
+			, $self->{status} => [$blk, $p, $st, $stmsg]
 			);
 		}
 	}
 
-sub got_error {
-	$_[KERNEL]->post($_[HEAP]->{alias}, error => $_[ARG0]);
-	}
-
 sub got_done {
     my ($kernel, $heap) = @_[KERNEL, HEAP];
-    $kernel->post($heap->{self}{alias}, "done");
+    my $self = $heap->{self};
+
+    $kernel->post($self->{alias}, $self->{done}, $self->{fn}, $self->{n});
     delete $heap->{child};
 	}
 
-1;
+sub got_error {
+	my ($kernel, $heap) = @_[KERNEL, HEAP];
+    my $self = $heap->{self};
+	$kernel->post($self->{alias}, $self->{error});
+	}
+
+1; # :)
 
 __END__
 
@@ -119,60 +136,74 @@ POE::Component::CDRip - POE Component for running cdparanoia, a CD ripper.
 
 use POE qw(Component::CDRip);
 
-$cdp = POE::Component::CDRip->new(alias => $alias);
-$cdp->rip(3, "/tmp/03.rip");
+$cd = POE::Component::CDRip->new(alias => $alias);
+$cd->rip(3, "/tmp/03.rip");
 
-$poe_kernel->run();
+$POE::Kernel->run();
 
 =head1 DESCRIPTION
 
-PoCo::CDRip's C<new()> method takes the following parameters:
+This POE component serves to rip tracks from a CD.  At present it is merely a wrapper for the B<cdparanoia> program which does the bulk of the work.
 
-=over 4
+=head1 METHODS
+
+The module provides an object oriented interface as follows: 
+
+=head2 new
+
+Used to initialise the system and create a module instance.  The following parameters are available:
 
 =item alias
 
-	alias => $alias
-
-C<alias> is the name of a session to which the callbacks below will be
-posted.  This defaults to B<console>.
+Indicates the name of a session to which module callbacks will be posted.  Default: C<main>.
 
 =item dev
 
-	dev => "/dev/cdrom"
+Indicates the device to rip from.  Default: F</dev/cdrom>.
 
-Indicates the device to rip from.  If left unspecified, defaults to the value shown above.
+=head2 rip
 
-=back
+Used to request that a track be ripped.  The following parameters are required:
 
-=head2 Methods
+=item track-number
 
-=item rip <track-number>, <file-name>
+Indicates the number of the track to rip, starting with 1.
 
-    e.g. $cdp->rip(3, "/tmp/tst.rip");
+=item file-name
 
-Rips the given track number into the given file name.  Both parameters are required.
+Provides the name of the file where to store the rip.
 
-=head2 Callbacks
+    e.g. C<$cdr->rip(3, "/tmp/tst.rip");>
 
-As noted above, all callbacks are either posted to the session alias 
-given to C<new()>.
+=head1 CALLBACKS
 
-=item status
+Callbacks are made to the session indicated in the C<spawn()> method.  The names of the functions called back may also be set via the aforementioned method.  The following callbacks are issued:
+
+=head2 status
 
 Fired during processing.  ARG0 is the block number being processed whilst ARG1 represents the percentage of completion expressed as a whole number between 0 and 100.
+
+=head2 done
+
+Fired upon completion of a rip.  The ARG0 parameter contains the name of the file ripped.
+
+=head2 error
+
+Fired on the event of an error.
 
 =head1 AUTHOR
 
 Erick Calder <ecalder@cpan.org>
 
+My gratitude to Rocco Caputo and Matt Cashner whose code has helped me put this together.
+
 =head1 DATE
 
-$Date: 2002/09/10 09:11:20 $
+$Date: 2002/09/12 10:37:54 $
 
 =head1 VERSION
 
-$Revision: 1.3 $
+$Revision: 1.5 $
 
 =head1 LICENSE AND COPYRIGHT
 
